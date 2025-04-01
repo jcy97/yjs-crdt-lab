@@ -1,35 +1,51 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { useRef, useState } from "react";
+import Editor from "@monaco-editor/react";
+import * as Y from "yjs";
+import { WebrtcProvider } from "y-webrtc";
+import { MonacoBinding } from "y-monaco";
+import * as monaco from "monaco-editor";
+import * as mutex from "lib0/mutex";
 
-function App() {
-  const [count, setCount] = useState(0)
+// Setup Monaco Editor
+// Attach YJS Text to Monaco Editor
+const App: React.FC = () => {
+  const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
+
+  // Editor value -> YJS Text value
+  // Initialize YJS, tell it to listen to our Monaco
+  function handleEditorDidMount(
+    editor: monaco.editor.IStandaloneCodeEditor,
+    monacoInstance: typeof monaco
+  ): void {
+    editorRef.current = editor;
+
+    // Initialize YJS
+    const doc = new Y.Doc(); // a collection of shared objects -> Text
+
+    // Connect to peers with WebRTC
+    const provider = new WebrtcProvider("test-room", doc, {
+      signaling: ["ws://localhost:4444"],
+    });
+    const type = doc.getText("monaco"); // doc { "monaco" : " what our IED is showing"}
+
+    // Bind YJS to Monaco
+    const binding = new MonacoBinding(
+      type,
+      editorRef.current.getModel()!,
+      new Set([editorRef.current]),
+      provider.awareness
+    );
+    console.log(provider.awareness);
+  }
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
-}
+    <Editor
+      height="100vh"
+      width="100vh"
+      theme="vs-dark"
+      onMount={handleEditorDidMount}
+    />
+  );
+};
 
-export default App
+export default App;
